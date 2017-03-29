@@ -1,7 +1,7 @@
 (function ($) {
 	$.fn.cyclotron = function (options) {
 		return this.each(function () {
-			var container, sx, dx = 0, armed, offset = 0, tick, prev, h = [], max=0, min=0;
+			var container, sx, dx = 0, armed, offset = 0, tick, prev, h = [], max=0, min=0, imgW=0, imgH=0;
 			container = $(this);
 			var settings = $.extend({
 				dampingFactor: 0.93,
@@ -9,6 +9,8 @@
 				autorotation: 0,
 				continuous: 1
 			}, options);
+			// scale background image to fit container height
+			container.css('background-size', 'auto 100%');
 			// check for dampingFactor in range
 			if((settings.dampingFactor>1 || settings.dampingFactor<0)) {
 				if (typeof console==='object') {
@@ -24,8 +26,12 @@
 			if(settings.continuous===0) {
 				var image_url = container.css('background-image').replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
 				var image = new Image();
-				$(image).load(function () {
-					max=image.width - container.width();
+				$(image).one('load', function () {
+					// store dimensions of image
+					imgW = image.width;
+					imgH = image.height;
+					// set Dimensions
+					onResize();
 				});
 				image.src = image_url;
 			}
@@ -34,13 +40,25 @@
 				armed=false;
 				dx=settings.autorotation;
 			}
-			container.bind('touchstart mousedown', function (e) {
+			onResize = function(){
+				if(imgH > 0){
+					// recalculate max (container width might have changed)
+					max=imgW *(container.height() / imgH) - container.width();
+					if(!armed){
+						checkOffset();
+						container.css('background-position', offset);
+					}
+				}
+			};
+			// add resize event listener
+			$( window ).on('resize', onResize);
+			container.on('touchstart mousedown', function (e) {
 				var px = (e.pageX>0?e.pageX:e.originalEvent.touches[0].pageX);
 				sx = px - offset;
 				armed = true;
 				e.preventDefault();
 			});
-			container.bind('touchmove mousemove', function (e) {
+			container.on('touchmove mousemove', function (e) {
 				if (armed) {
 					var px = (e.pageX>0?e.pageX:e.originalEvent.touches[0].pageX);
 					if (typeof prev==='undefined') {
@@ -56,7 +74,7 @@
 					prev = px;
 				}
 			});
-			container.bind('mouseleave mouseup touchend', function () {
+			container.on('mouseleave mouseup touchend', function () {
 				if (armed) {
 					var len = h.length, v = h[len - 1];
 					for (var i = 0; i < len; i++) {
@@ -94,7 +112,7 @@
 				requestAnimFrame(animloop);
 				tick();
 			})();
-			function checkOffset() {
+			checkOffset = function() {
 				if(settings.continuous===0) {
 					if (-offset<min) {
 						dx=0;
